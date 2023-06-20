@@ -93,7 +93,8 @@ text_document_did_close <- function(self, params) {
     textDocument <- params$textDocument
     uri <- uri_escape_unicode(textDocument$uri)
     path <- path_from_uri(uri)
-    is_from_workspace <- path_has_parent(path, self$rootPath)
+    r_file_list <- file.path(project_root, self$workspace$r_file_list)
+    is_from_workspace <- path %in% r_file_list
 
     # remove diagnostics if file is not from workspace
     if (!is_from_workspace) {
@@ -108,7 +109,7 @@ text_document_did_close <- function(self, params) {
     }
 
     # do not remove document in package
-    if (!(is_package(self$rootPath) && is_from_workspace)) {
+    if (is_from_workspace) {
         diagnostics_callback(self, uri, NULL, list())
         self$workspace$documents$remove(uri)
         self$workspace$update_loaded_packages()

@@ -49,12 +49,14 @@ on_initialize <- function(self, id, params) {
 #' @noRd
 on_initialized <- function(self, params) {
     logger$info("on_initialized")
-    if (is_package(self$rootPath)) {
-        # a bit like devtools::load_all()
-        self$workspace$load_all(self)
-        # TODO: result lint result of the package
-        # lint_result <- lintr::lint_package(rootPath)
+    # a bit like devtools::load_all()
+    self$workspace$load_all(self)
+
+    if(is_package(self$root)) {
+        self$workspace$import_from_namespace_file()
     }
+    # TODO: result lint result of the package
+    # lint_result <- lintr::lint_package(rootPath)
 }
 
 #' `shutdown` request handler

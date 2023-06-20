@@ -165,6 +165,7 @@ settings | default | description
 `r.lsp.lint_cache` | `false` | toggle caching of lint results
 `r.lsp.server_capabilities` | `{}` | override server capabilities defined in [capabilities.R](https://github.com/REditorSupport/languageserver/blob/master/R/capabilities.R). See FAQ below.
 `r.lsp.link_file_size_limit` | 16384 | maximum file size (in bytes) that supports document links
+`r.lsp.source_dirs` | `{}` | Directories to load R source files from. If empty, the lsp server will try to detect if the current workspace is an R package by looking for a DESCRIPTION file. If such a file is found, all R source files from the `R/` folder are loaded.
 
 These settings could also specified in `.Rprofile` file via `options(languageserver.<SETTING_NAME> =  <VALUE>)`. For example,
 

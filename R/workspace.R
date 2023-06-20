@@ -13,6 +13,8 @@ Workspace <- R6::R6Class("Workspace",
         global_env = NULL,
         documents = NULL,
 
+        r_file_list = NULL, 
+
         # from NAMESPACE importFrom()
         imported_objects = NULL,
         # from NAMESPACE import()
@@ -26,6 +28,8 @@ Workspace <- R6::R6Class("Workspace",
         initialize = function(root) {
             self$root <- root
             self$documents <- collections::dict()
+            self$r_file_list <- self$update_r_file_list()
+
             self$imported_objects <- collections::dict()
             self$imported_packages <- character(0)
             self$global_env <- GlobalEnv$new(self$documents)
@@ -232,6 +236,23 @@ Workspace <- R6::R6Class("Workspace",
             self$documents$get(uri, NULL)$parse_data
         },
 
+        update_r_file_list = function() {
+            setting_source_dirs <- lsp_settings$get("source_dirs")
+            r_file_list <- character(0)
+            if (length(setting_source_dirs) == 0 && is_package(self$root)) {
+                source_dir <- file.path(self$root, "R")
+                files <- list.files(source_dir, pattern = "\\.r$", ignore.case = TRUE)
+                r_file_list <- file.path("R", files)
+            } else if (length(setting_source_dirs) != 0) (
+                for (dir in setting_source_dirs) {
+                    source_dir <- file.path(self$root, dir)
+                    files <- list.files(source_dir, pattern = "\\.r$", ignore.case = TRUE)
+                    r_file_list <- union(r_file_list, file.path(dir, files))
+                }
+            )
+            self$r_file_list <- r_file_list
+        },
+
         update_loaded_packages = function() {
             loaded_packages <- union(self$startup_packages, self$imported_packages)
             for (doc in self$documents$values()) {
@@ -249,18 +270,18 @@ Workspace <- R6::R6Class("Workspace",
         },
 
         load_all = function(langserver) {
-            source_dir <- file.path(self$root, "R")
-            files <- list.files(source_dir, pattern = "\\.r$", ignore.case = TRUE)
-            for (f in files) {
+            root <- self$root
+            r_file_list <- self$r_file_list
+
+            for (f in r_file_list) {
                 logger$info("load ", f)
-                path <- file.path(source_dir, f)
+                path <- file.path(root, f)
                 uri <- path_to_uri(path)
                 doc <- Document$new(uri, language = "r", version = NULL, content = stringi::stri_read_lines(path))
                 self$documents$set(uri, doc)
                 # TODO: move text_sync to Workspace!?
                 langserver$text_sync(uri, document = doc, parse = TRUE)
             }
-            self$import_from_namespace_file()
         },
 
         import_from_namespace_file = function() {
