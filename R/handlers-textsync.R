@@ -90,6 +90,7 @@ text_document_did_save <- function(self, params) {
 #' Handler to the `textDocument/didClose` [Notification].
 #' @noRd
 text_document_did_close <- function(self, params) {
+    project_root <- self$rootPath
     textDocument <- params$textDocument
     uri <- uri_escape_unicode(textDocument$uri)
     path <- path_from_uri(uri)
