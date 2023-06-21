@@ -11,6 +11,7 @@ SEXP find_unbalanced_bracket_cached_c(SEXP document, SEXP row, SEXP col,
     SEXP skip_empty_line, SEXP cache);
 
 SEXP enclosed_by_quotes(SEXP s, SEXP _col);
+SEXP find_opening_quotes(SEXP s, SEXP _col);
 
 SEXP detect_comments(SEXP content, SEXP _row);
 

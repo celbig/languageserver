@@ -1148,12 +1148,78 @@ completion_has_call_parens <- function(document, token_result) {
     startsWith(trimws(rest_of_line), "(")
 }
 
+path_completion <- function(path_start, rootPath, point) {
+    base_part <- fs::path_file(path_start)
+    dir_part <- fs::path_dir(path_start)
+    if(substr(path_start, nchar(path_start), nchar(path_start)) %in% c("/", "\\")) {
+        dir_part <- file.path(dir_part, base_part)
+        base_part <- ""
+    }
+
+    if (path_start == "") {
+        dir_part <- "."
+    }
+
+    path <- file.path(rootPath, dir_part)
+    all_match <- list.files(path = path, all.files = TRUE)
+
+    if (base_part != "") {
+        all_match <- all_match[startsWith(all_match, base_part)]
+    }
+
+    all_match <- all_match[!all_match %in% c(".", "..")]
+    is_dir <- dir.exists(file.path(path, all_match))
+    dirs <- all_match[is_dir]
+    files <- all_match[!is_dir]
+
+    completions <- c(
+        lapply(dirs, function(dir) {
+            list(label = paste0(" ", dir),
+                kind = CompletionItemKind$File,
+                sortText = paste0(sort_prefixes$arg, dir),
+                textEdit = list(
+                    range = list(
+                        start = list(line = point$row, character = point$col - nchar(base_part)), 
+                        end = list(line = point$row, character = point$col)
+                    ), 
+                    newText = file.path(dir, "")
+                ), 
+                command = list(
+                    title = "Trigger suggest", 
+                    command = "editor.action.triggerSuggest"
+                )
+            )
+        }),
+        lapply(files, function(file) {
+            list(label = paste0(" ", file),
+                kind = CompletionItemKind$File,
+                sortText = paste0(sort_prefixes$scope, file),
+                textEdit = list(
+                    range = list(
+                        start = list(line = point$row, character = point$col - nchar(base_part)), 
+                        end = list(line = point$row, character = point$col)
+                    ), 
+                    newText = file
+                )
+            )
+        })
+    )
+}
+
 #' The response to a textDocument/completion request
 #' @noRd
 completion_reply <- function(id, uri, workspace, document, point, capabilities) {
     if (!check_scope(uri, document, point) && is.null(member_cursor(document, point))) {
         quoted <- if (isTRUE(lsp_settings$get("s3_dispatch")) && check_r_region(document, point)) s3_quoted_values(workspace, document, point)
         if (!is.null(quoted)) return(Response$new(id, result = list(isIncomplete = FALSE, items = unname(quoted))))
+        if (check_r_region(document, point) && enclosed_by_quotes(document, point)) {
+            string_start <- get_string_start(document, point)
+            if (!is.null(string_start)) {
+                return(Response$new(id, result = list(
+                    isIncomplete = FALSE,
+                    items = path_completion(string_start, workspace$root, point))))
+            }
+        }
         return(Response$new(
             id,
             result = list(
