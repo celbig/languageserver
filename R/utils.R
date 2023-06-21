@@ -215,14 +215,11 @@ check_scope <- function(uri, document, point) {
         if (any(flags)) {
             last_match <- document$content[max(which(flags))]
             stringi::stri_detect_regex(last_match, "```+\\s*\\{[rR][ ,\\}]") &&
-                !identical(sum(flags) %% 2, 0) &&
-                !enclosed_by_quotes(document, point)
+                !identical(sum(flags) %% 2, 0)
         } else {
             FALSE
         }
-    } else {
-        !enclosed_by_quotes(document, point)
-    }
+    } else TRUE
 }
 
 match_with <- function(x, token) {

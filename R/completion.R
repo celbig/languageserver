@@ -444,6 +444,62 @@ token_completion <- function(uri, workspace, token, exclude = NULL) {
     })
 }
 
+path_completion <- function(path_start, rootPath, point) {
+    base_part <- fs::path_file(path_start)
+    dir_part <- fs::path_dir(path_start)
+    if(substr(path_start, nchar(path_start), nchar(path_start)) %in% c("/", "\\")) {
+        dir_part <- file.path(dir_part, base_part)
+        base_part <- ""
+    }
+
+    if (path_start == "") {
+        dir_part <- "."
+    }
+
+    path <- file.path(rootPath, dir_part)
+    all_match <- list.files(path = path, all.files = TRUE)
+
+    if(base_part != "") {""
+        all_match <- all_match[stringr::str_starts(all_match, stringr::fixed(base_part))]
+    }
+
+    dirs <- all_match[dir.exists(all_match) & !all_match %in% c(".", "..")]
+    files <- all_match[!dir.exists(all_match) & !all_match %in% c(".", "..")]
+
+    completions <- c(
+        lapply(dirs, function(dir) {
+            list(label = paste0(" ", dir),
+                kind = CompletionItemKind$File,
+                sortText = paste0(sort_prefixes$arg, dir),
+                textEdit = list(
+                    range = list(
+                        start = list(line = point$row, character = point$col - nchar(base_part)), 
+                        end = list(line = point$row, character = point$col)
+                    ), 
+                    newText = file.path(dir, "")
+                ), 
+                command = list(
+                    title = "Trigger suggest", 
+                    command = "editor.action.triggerSuggest"
+                )
+            )
+        }),
+        lapply(files, function(file) {
+            list(label = paste0(" ", file),
+                kind = CompletionItemKind$File,
+                sortText = paste0(sort_prefixes$scope, file),
+                textEdit = list(
+                    range = list(
+                        start = list(line = point$row, character = point$col - nchar(base_part)), 
+                        end = list(line = point$row, character = point$col)
+                    ), 
+                    newText = file
+                )
+            )
+        })
+    )
+}
+
 #' The response to a textDocument/completion request
 #' @noRd
 completion_reply <- function(id, uri, workspace, document, point, capabilities) {
@@ -460,45 +516,49 @@ completion_reply <- function(id, uri, workspace, document, point, capabilities) 
     snippet_support <- isTRUE(capabilities$completionItem$snippetSupport) &&
         lsp_settings$get("snippet_support")
 
-    token_result <- document$detect_token(point, forward = FALSE)
-
-    full_token <- token_result$full_token
-    token <- token_result$token
-    package <- token_result$package
-
     completions <- list()
+    if (enclosed_by_quotes(document, point)) {
+            string_start <- get_string_start(document, point)
+            completions <- c(completions, path_completion(string_start, workspace$root, point))
+    } else {
+        token_result <- document$detect_token(point, forward = FALSE)
 
-    if (nzchar(full_token)) {
-        if (is.null(package)) {
+        full_token <- token_result$full_token
+        token <- token_result$token
+        package <- token_result$package
+
+        if (nzchar(full_token)) {
+            if (is.null(package)) {
+                completions <- c(
+                    completions,
+                    constant_completion(token),
+                    package_completion(token),
+                    scope_completion(uri, workspace, token, point, snippet_support))
+            }
             completions <- c(
                 completions,
-                constant_completion(token),
-                package_completion(token),
-                scope_completion(uri, workspace, token, point, snippet_support))
+                workspace_completion(
+                    workspace, token, package, token_result$accessor == "::", snippet_support))
         }
-        completions <- c(
-            completions,
-            workspace_completion(
-                workspace, token, package, token_result$accessor == "::", snippet_support))
-    }
 
-    if (token_result$accessor == "") {
-        call_result <- document$detect_call(point)
-        if (nzchar(call_result$token)) {
+        if (token_result$accessor == "") {
+            call_result <- document$detect_call(point)
+            if (nzchar(call_result$token)) {
+                completions <- c(
+                    completions,
+                    arg_completion(uri, workspace, point, token,
+                        call_result$token, call_result$package,
+                        exported_only = call_result$accessor != ":::"))
+            }
+        }
+
+        if (is.null(token_result$package)) {
+            existing_symbols <- vapply(completions, "[[", character(1), "label")
             completions <- c(
                 completions,
-                arg_completion(uri, workspace, point, token,
-                    call_result$token, call_result$package,
-                    exported_only = call_result$accessor != ":::"))
+                token_completion(uri, workspace, token, existing_symbols)
+            )
         }
-    }
-
-    if (is.null(token_result$package)) {
-        existing_symbols <- vapply(completions, "[[", character(1), "label")
-        completions <- c(
-            completions,
-            token_completion(uri, workspace, token, existing_symbols)
-        )
     }
 
     init_count <- length(completions)

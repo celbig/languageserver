@@ -8,6 +8,7 @@
 SEXP find_unbalanced_bracket(SEXP document, SEXP _row, SEXP _col, SEXP _skip_el);
 
 SEXP enclosed_by_quotes(SEXP s, SEXP _col);
+SEXP find_opening_quotes(SEXP s, SEXP _col);
 
 SEXP detect_comments(SEXP content, SEXP _row);
 

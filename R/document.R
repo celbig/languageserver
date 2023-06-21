@@ -159,6 +159,29 @@ enclosed_by_quotes <- function(document, point) {
     .Call("enclosed_by_quotes", PACKAGE = "languageserver", text, col - 1)
 }
 
+#' Get position of opening quote
+#' @noRd
+find_opening_quotes <- function(document, point) {
+    text <- document$line0(point$row)
+    col <- point$col
+    .Call("find_opening_quotes", PACKAGE = "languageserver", text, col - 1)
+}
+
+get_string_start <- function(document, point) {
+    quote_pos <- find_opening_quotes(document, point)
+    col <- point$col
+
+    # logger$info("debug: ", list(
+    #     quote_pos = quote_pos,
+    #     col = col
+    # ))
+
+    if (quote_pos < 0 || quote_pos > col ) return(NULL)
+
+    text <- document$line0(point$row)
+    substr(text, quote_pos + 2 , col)
+}
+
 detect_comments <- function(content, row) {
     .Call("detect_comments", PACKAGE = "languageserver",
         content, row)

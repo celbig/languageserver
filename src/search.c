@@ -137,6 +137,47 @@ SEXP enclosed_by_quotes(SEXP _s, SEXP _col) {
     return Rf_ScalarLogical(enclosed);
 }
 
+SEXP find_opening_quotes(SEXP _s, SEXP _col) {
+    int col = Rf_asInteger(_col);
+    const char* c = Rf_translateCharUTF8(STRING_ELT(_s, 0));
+    unsigned char cj;
+    int n = strlen(c);
+    int quote_pos = -1;
+    int was_quoted = 0, is_quoted = 0;
+
+    // search forward until the `col` character or # sign
+    int j = 0;
+    int k = 0;
+
+    fsm_state state;
+    fsm_initialize(&state);
+    
+    while (j < n && k <= col) {
+        cj = c[j];
+        if (0x80 <= cj && cj <= 0xbf) {
+            j++;
+            continue;
+        }
+        if (!state.single_quoted && !state.double_quoted && !state.backticked && !state.escaped && cj == '#') break;
+
+        was_quoted = is_quoted;
+        fsm_feed(&state, cj);
+        is_quoted = state.single_quoted || state.double_quoted;
+
+        if (!was_quoted && is_quoted) {
+            quote_pos = k;
+        }
+        if (was_quoted && !is_quoted) {
+            quote_pos = -1;
+        }
+
+        j++;
+        k++;
+    }
+
+    return Rf_ScalarInteger(quote_pos);
+}
+
 SEXP detect_comments(SEXP content, SEXP _row) {
     int row = Rf_asInteger(_row);
     int out = row;

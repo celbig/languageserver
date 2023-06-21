@@ -24,6 +24,7 @@ SEXP process_is_detached(void) {
 static const R_CallMethodDef CallEntries[] = {
     {"find_unbalanced_bracket", (DL_FUNC) &find_unbalanced_bracket, 4},
     {"enclosed_by_quotes", (DL_FUNC) &enclosed_by_quotes, 2},
+    {"find_opening_quotes", (DL_FUNC) &find_opening_quotes, 2},
     {"detect_comments", (DL_FUNC) &detect_comments, 2},
     {"stdin_read_char", (DL_FUNC) &stdin_read_char, 1},
     {"stdin_read_line", (DL_FUNC) &stdin_read_line},
